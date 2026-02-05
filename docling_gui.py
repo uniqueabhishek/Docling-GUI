@@ -6,6 +6,7 @@ Supports all Docling features including OCR, VLM, ASR pipelines
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import threading
+import subprocess
 import os
 import webbrowser
 from pathlib import Path
@@ -18,10 +19,7 @@ from conversion_utils import (
     DOCLING_AVAILABLE,
     get_output_extension,
     export_content,
-    build_pipeline_options,
-    DocumentConverter,
-    InputFormat,
-    PdfFormatOption
+    build_converter,
 )
 
 # Try to import drag-drop support
@@ -102,42 +100,8 @@ class DoclingGUI:
         elif 'clam' in available_themes:  # Cross-platform modern
             style.theme_use('clam')
 
-        # Custom button styles with modern colors
-        style.configure(
-            'Primary.TButton',
-            foreground='#ffffff',
-            background='#2563eb',
-            font=('', 10, 'bold'),
-            padding=10
-        )
-        style.map(
-            'Primary.TButton',
-            background=[('active', '#1d4ed8'), ('pressed', '#1e40af')]
-        )
-
-        style.configure(
-            'Success.TButton',
-            foreground='#ffffff',
-            background='#16a34a',
-            font=('', 10, 'bold'),
-            padding=10
-        )
-        style.map(
-            'Success.TButton',
-            background=[('active', '#15803d'), ('pressed', '#166534')]
-        )
-
-        style.configure(
-            'Danger.TButton',
-            foreground='#ffffff',
-            background='#dc2626',
-            font=('', 10),
-            padding=10
-        )
-        style.map(
-            'Danger.TButton',
-            background=[('active', '#b91c1c'), ('pressed', '#991b1b')]
-        )
+        # Note: Custom button colors are applied via tk.Button (not ttk)
+        # because the Windows vista theme ignores ttk background/foreground.
 
         # Enhanced progress bar
         style.configure(
@@ -155,8 +119,7 @@ class DoclingGUI:
         )
         style.map(
             'TNotebook.Tab',
-            background=[('selected', '#2563eb')],
-            foreground=[('selected', '#ffffff')]
+            foreground=[('selected', '#2563eb')]
         )
 
         # LabelFrame styling
@@ -215,7 +178,6 @@ class DoclingGUI:
             value=str(Path.home() / "Documents"))
         self.create_subfolder = tk.BooleanVar(value=False)
         self.overwrite_files = tk.BooleanVar(value=False)
-        self.export_images_separately = tk.BooleanVar(value=False)
 
     def get_current_settings(self):
         """Collect current settings into a dictionary"""
@@ -254,7 +216,6 @@ class DoclingGUI:
             'output_directory': self.output_directory.get(),
             'create_subfolder': self.create_subfolder.get(),
             'overwrite_files': self.overwrite_files.get(),
-            'export_images_separately': self.export_images_separately.get(),
         }
 
     def create_main_layout(self):
@@ -296,8 +257,45 @@ class DoclingGUI:
             self.vlm_frame.pack_forget()
 
     def reset_options(self):
-        """Reset all options to defaults"""
-        self.init_variables()
+        """Reset all options to defaults by updating existing variables"""
+        self.pipeline_type.set("Standard")
+        self.vlm_model.set("granite_docling")
+        self.output_format.set("Markdown")
+
+        self.enable_ocr.set(True)
+        self.do_table_structure.set(True)
+        self.generate_picture_images.set(False)
+        self.do_formula_enrichment.set(True)
+        self.do_code_enrichment.set(True)
+        self.do_picture_classification.set(True)
+        self.do_picture_description.set(False)
+
+        self.ocr_engine.set("RapidOCR")
+        self.ocr_language.set("en")
+        self.force_full_page_ocr.set(False)
+        self.ocr_confidence.set(0.5)
+
+        self.table_mode.set("Accurate")
+        self.do_cell_matching.set(True)
+
+        self.max_pages.set(0)
+        self.max_file_size_mb.set(0)
+        self.document_timeout.set(0)
+        self.generate_page_images.set(False)
+        self.generate_table_images.set(False)
+        self.images_scale.set(1.0)
+
+        self.device.set("auto")
+        self.num_threads.set(4)
+        self.use_flash_attention.set(False)
+
+        self.output_directory.set(str(Path.home() / "Documents"))
+        self.create_subfolder.set(False)
+        self.overwrite_files.set(False)
+
+        # Hide VLM frame if shown
+        self.vlm_frame.pack_forget()
+
         messagebox.showinfo(
             "Reset", "All options have been reset to defaults.")
 
@@ -340,7 +338,7 @@ class DoclingGUI:
             self.log_message(f"Added {count} files from folder")
 
     def add_file_to_list(self, filepath):
-        """Add a single file to the list"""
+        """Add a single file to the list. Returns True if added."""
         if filepath not in self.file_list:
             ext = os.path.splitext(filepath)[1].lower()
             if ext in config.SUPPORTED_EXTENSIONS:
@@ -348,8 +346,10 @@ class DoclingGUI:
                 display_name = os.path.basename(filepath)
                 self.file_listbox.insert(tk.END, display_name)
                 self.update_file_count()
+                return True
             else:
                 self.log_message(f"Unsupported file type: {filepath}")
+        return False
 
     def remove_selected(self):
         """Remove selected files from the list"""
@@ -377,15 +377,10 @@ class DoclingGUI:
             selection = self.file_listbox.curselection()
             if selection:
                 index = selection[0]
-                # Ensure index is within bounds
                 if index < len(self.file_list):
                     filepath = self.file_list[index]
-                    print(f"DEBUG: Selected file: {filepath}")
                     self.show_file_info(filepath)
-                else:
-                    print(f"DEBUG: Index {index} out of bounds")
         except Exception as e:  # pylint: disable=broad-except
-            print(f"ERROR in on_file_select: {e}")
             self.log_message(f"Selection error: {e}")
 
     def show_file_info(self, filepath):
@@ -410,8 +405,6 @@ class DoclingGUI:
             info += f"Size: {size_str}\n"
             info += f"Type: {config.SUPPORTED_EXTENSIONS.get(ext, 'Unknown')}\n"
 
-            print(f"DEBUG: Updating preview with:\n{info}")
-
             self.preview_text.config(state=tk.NORMAL)
             self.preview_text.delete(1.0, tk.END)
             self.preview_text.insert(tk.END, info)
@@ -421,7 +414,6 @@ class DoclingGUI:
             self.preview_notebook.select(0)
 
         except Exception as e:  # pylint: disable=broad-except
-            print(f"ERROR in show_file_info: {e}")
             self.log_message(f"Error reading file info: {e}")
 
             # Show error in preview window as well
@@ -442,16 +434,14 @@ class DoclingGUI:
             self.context_menu.grab_release()
 
     def open_in_explorer(self):
-        """Open selected file location in Explorer"""
+        """Open selected file location in Explorer/Finder"""
         selection = self.file_listbox.curselection()
         if selection:
-            filepath = self.file_list[selection[0]]
-            # Windows
+            folder = os.path.dirname(self.file_list[selection[0]])
             if os.name == 'nt':
-                os.startfile(os.path.dirname(filepath))
-            # macOS
+                os.startfile(folder)
             elif os.name == 'posix':
-                os.system(f'open "{os.path.dirname(filepath)}"')
+                subprocess.run(['open', folder], check=False)
 
     def browse_output_dir(self):
         """Browse for output directory"""
@@ -508,16 +498,12 @@ class DoclingGUI:
             item = item.strip('{}')
 
             if os.path.isfile(item):
-                # Single file
-                self.add_file_to_list(item)
-                added_count += 1
+                if self.add_file_to_list(item):
+                    added_count += 1
             elif os.path.isdir(item):
-                # Directory - add all supported files
                 for root, _, dir_files in os.walk(item):
                     for file in dir_files:
-                        ext = os.path.splitext(file)[1].lower()
-                        if ext in config.SUPPORTED_EXTENSIONS:
-                            self.add_file_to_list(os.path.join(root, file))
+                        if self.add_file_to_list(os.path.join(root, file)):
                             added_count += 1
 
         if added_count > 0:
@@ -579,9 +565,6 @@ class DoclingGUI:
     def conversion_worker(self, files, settings):
         """Worker thread for conversion"""
         try:
-            # Build pipeline options
-            pipeline_options = build_pipeline_options(settings)
-
             # Log configuration
             self.log_message("=== Conversion Configuration ===")
             self.log_message(f"Pipeline: {settings['pipeline_type']}")
@@ -595,16 +578,9 @@ class DoclingGUI:
                 f"Device: {settings['device']}, Threads: {settings['num_threads']}")
             self.log_message("================================")
 
-            # Create converter with options
-            if pipeline_options:
-                self.converter = DocumentConverter(
-                    format_options={
-                        InputFormat.PDF: PdfFormatOption(
-                            pipeline_options=pipeline_options)
-                    }
-                )
-            else:
-                self.converter = DocumentConverter()
+            # Build converter with proper pipeline type
+            self.converter, pipeline_name = build_converter(settings)
+            self.log_message(f"Using {pipeline_name} pipeline")
 
             total = len(files)
             successful = 0
@@ -633,7 +609,8 @@ class DoclingGUI:
 
                     if settings['create_subfolder']:
                         output_dir = os.path.join(output_dir, base_name)
-                        os.makedirs(output_dir, exist_ok=True)
+
+                    os.makedirs(output_dir, exist_ok=True)
 
                     output_path = os.path.join(
                         output_dir, f"{base_name}{output_ext}")

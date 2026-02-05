@@ -2,6 +2,7 @@
 Conversion utilities for Docling GUI
 """
 import json
+import re
 
 # Try to import docling components
 try:
@@ -21,6 +22,22 @@ except ImportError:
     PdfPipelineOptions = None
     TableFormerMode = None
     AcceleratorOptions = None
+
+# Try to import VLM pipeline
+try:
+    from docling.datamodel.pipeline_options import VlmPipelineOptions
+    VLM_AVAILABLE = True
+except ImportError:
+    VLM_AVAILABLE = False
+    VlmPipelineOptions = None
+
+# Try to import ASR pipeline
+try:
+    from docling.datamodel.pipeline_options import AsrPipelineOptions
+    ASR_AVAILABLE = True
+except ImportError:
+    ASR_AVAILABLE = False
+    AsrPipelineOptions = None
 
 # Try to import OCR options
 try:
@@ -46,9 +63,12 @@ __all__ = [
     'DOCLING_AVAILABLE',
     'OCR_OPTIONS_AVAILABLE',
     'OCRMAC_AVAILABLE',
+    'VLM_AVAILABLE',
+    'ASR_AVAILABLE',
     'get_output_extension',
     'export_content',
     'build_pipeline_options',
+    'build_converter',
     'DocumentConverter',
     'PdfFormatOption',
     'InputFormat',
@@ -83,8 +103,14 @@ def export_content(result, format_name):
         else:
             return doc.export_to_markdown()
     elif format_name == "Text":
-        # Plain text - strip markdown
-        return doc.export_to_markdown()
+        md = doc.export_to_markdown()
+        # Strip markdown formatting: headers, bold, italic, links, images
+        text = re.sub(r'^#{1,6}\s+', '', md, flags=re.MULTILINE)
+        text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+        text = re.sub(r'\*(.+?)\*', r'\1', text)
+        text = re.sub(r'!\[.*?\]\(.*?\)', '', text)
+        text = re.sub(r'\[(.+?)\]\(.*?\)', r'\1', text)
+        return text
     else:
         return doc.export_to_markdown()
 
@@ -101,16 +127,16 @@ def build_pipeline_options(settings):
     if not DOCLING_AVAILABLE:
         return None
 
-    # Create pipeline options
+    # Create pipeline options (defaults match GUI init_variables)
     pipeline_options = PdfPipelineOptions(
-        do_ocr=settings.get('enable_ocr', False),
+        do_ocr=settings.get('enable_ocr', True),
         do_table_structure=settings.get('do_table_structure', True),
         do_picture_classification=settings.get(
             'do_picture_classification', True),
-        do_picture_description=settings.get('do_picture_description', True),
-        generate_page_images=settings.get('generate_page_images', True),
-        generate_picture_images=settings.get('generate_picture_images', True),
-        generate_table_images=settings.get('generate_table_images', True),
+        do_picture_description=settings.get('do_picture_description', False),
+        generate_page_images=settings.get('generate_page_images', False),
+        generate_picture_images=settings.get('generate_picture_images', False),
+        generate_table_images=settings.get('generate_table_images', False),
     )
 
     # Set optional enrichment options if available
@@ -166,6 +192,45 @@ def build_pipeline_options(settings):
 
     # Images scale
     if hasattr(pipeline_options, 'images_scale'):
-        pipeline_options.images_scale = settings.get('images_scale', 2.0)
+        pipeline_options.images_scale = settings.get('images_scale', 1.0)
+
+    # Document timeout
+    timeout = settings.get('document_timeout', 0)
+    if timeout > 0 and hasattr(pipeline_options, 'document_timeout'):
+        pipeline_options.document_timeout = float(timeout)
 
     return pipeline_options
+
+
+def build_converter(settings):
+    """
+    Build a DocumentConverter with proper pipeline and format options
+    based on the selected pipeline type.
+
+    Returns (converter, pipeline_name) tuple.
+    """
+    if not DOCLING_AVAILABLE:
+        return None, "unavailable"
+
+    pipeline_type = settings.get('pipeline_type', 'Standard')
+
+    if pipeline_type == "VLM" and VLM_AVAILABLE:
+        converter = DocumentConverter(pipeline=VlmPipelineOptions)
+        return converter, "VLM"
+
+    if pipeline_type == "ASR" and ASR_AVAILABLE:
+        converter = DocumentConverter(pipeline=AsrPipelineOptions)
+        return converter, "ASR"
+
+    # Standard pipeline - apply PDF options to all supported formats
+    pipeline_options = build_pipeline_options(settings)
+    if pipeline_options:
+        format_options = {
+            InputFormat.PDF: PdfFormatOption(
+                pipeline_options=pipeline_options),
+        }
+        converter = DocumentConverter(format_options=format_options)
+    else:
+        converter = DocumentConverter()
+
+    return converter, "Standard"

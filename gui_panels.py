@@ -382,14 +382,13 @@ def _create_advanced_options_tab(gui):
 
     # Max Pages
     ttk.Label(limits_frame, text="Max Pages:").pack(side=tk.LEFT)
-    max_pages_spin = ttk.Spinbox(
+    ttk.Spinbox(
         limits_frame,
         from_=0,
         to=10000,
         textvariable=gui.max_pages,
         width=8
-    )
-    max_pages_spin.pack(side=tk.LEFT, padx=(5, 15))
+    ).pack(side=tk.LEFT, padx=(5, 15))
     ttk.Label(limits_frame, text="(0 = unlimited)",
               foreground="gray").pack(side=tk.LEFT)
 
@@ -398,14 +397,13 @@ def _create_advanced_options_tab(gui):
 
     # Timeout
     ttk.Label(limits_frame2, text="Timeout (sec):").pack(side=tk.LEFT)
-    timeout_spin = ttk.Spinbox(
+    ttk.Spinbox(
         limits_frame2,
         from_=0,
         to=3600,
         textvariable=gui.document_timeout,
         width=8
-    )
-    timeout_spin.pack(side=tk.LEFT, padx=(5, 15))
+    ).pack(side=tk.LEFT, padx=(5, 15))
     ttk.Label(limits_frame2, text="(0 = no limit)",
               foreground="gray").pack(side=tk.LEFT)
 
@@ -429,15 +427,14 @@ def _create_advanced_options_tab(gui):
     scale_frame.pack(fill=tk.X, pady=5)
 
     ttk.Label(scale_frame, text="Image Scale:").pack(side=tk.LEFT)
-    scale_spin = ttk.Spinbox(
+    ttk.Spinbox(
         scale_frame,
         from_=0.5,
         to=3.0,
         increment=0.25,
         textvariable=gui.images_scale,
         width=8
-    )
-    scale_spin.pack(side=tk.LEFT, padx=(5, 10))
+    ).pack(side=tk.LEFT, padx=(5, 10))
     ttk.Label(scale_frame, text="(0.5 - 3.0)",
               foreground="gray").pack(side=tk.LEFT)
 
@@ -484,14 +481,13 @@ def _create_accelerator_options_tab(gui):
     thread_frame.pack(fill=tk.X, pady=5)
 
     ttk.Label(thread_frame, text="Threads:").pack(side=tk.LEFT)
-    thread_spin = ttk.Spinbox(
+    ttk.Spinbox(
         thread_frame,
         from_=1,
         to=32,
         textvariable=gui.num_threads,
         width=8
-    )
-    thread_spin.pack(side=tk.LEFT, padx=(10, 10))
+    ).pack(side=tk.LEFT, padx=(10, 10))
     ttk.Label(thread_frame, text="(1-32, default: 4)",
               foreground="gray").pack(side=tk.LEFT)
 
@@ -517,9 +513,9 @@ def create_output_panel(gui, parent):
     dir_frame.pack(fill=tk.X, pady=5)
 
     ttk.Label(dir_frame, text="Output Directory:").pack(side=tk.LEFT)
-    dir_entry = ttk.Entry(
-        dir_frame, textvariable=gui.output_directory, width=50)
-    dir_entry.pack(side=tk.LEFT, padx=(10, 5), fill=tk.X, expand=True)
+    ttk.Entry(
+        dir_frame, textvariable=gui.output_directory, width=50
+    ).pack(side=tk.LEFT, padx=(10, 5), fill=tk.X, expand=True)
     ttk.Button(dir_frame, text="Browse",
                command=gui.browse_output_dir).pack(side=tk.LEFT)
 
@@ -530,9 +526,7 @@ def create_output_panel(gui, parent):
     ttk.Checkbutton(options_frame, text="Create subfolder per file",
                     variable=gui.create_subfolder).pack(side=tk.LEFT, padx=(0, 15))
     ttk.Checkbutton(options_frame, text="Overwrite existing",
-                    variable=gui.overwrite_files).pack(side=tk.LEFT, padx=(0, 15))
-    ttk.Checkbutton(options_frame, text="Export images separately",
-                    variable=gui.export_images_separately).pack(side=tk.LEFT)
+                    variable=gui.overwrite_files).pack(side=tk.LEFT)
 
 
 def create_preview_panel(gui, parent):
@@ -610,27 +604,37 @@ def create_controls_panel(gui, parent):
     btn_frame = ttk.Frame(controls_frame)
     btn_frame.pack()
 
-    gui.convert_selected_btn = ttk.Button(
+    gui.convert_selected_btn = tk.Button(
         btn_frame,
         text="Convert Selected",
         command=gui.convert_selected,
-        style='Primary.TButton'
+        bg='#2563eb', fg='#ffffff',
+        activebackground='#1d4ed8', activeforeground='#ffffff',
+        font=('', 10, 'bold'),
+        padx=16, pady=6, relief=tk.RAISED, cursor='hand2'
     )
     gui.convert_selected_btn.pack(side=tk.LEFT, padx=5)
 
-    gui.convert_all_btn = ttk.Button(
+    gui.convert_all_btn = tk.Button(
         btn_frame,
         text="Convert All",
         command=gui.convert_all,
-        style='Success.TButton'
+        bg='#16a34a', fg='#ffffff',
+        activebackground='#15803d', activeforeground='#ffffff',
+        font=('', 10, 'bold'),
+        padx=16, pady=6, relief=tk.RAISED, cursor='hand2'
     )
     gui.convert_all_btn.pack(side=tk.LEFT, padx=5)
 
-    gui.cancel_btn = ttk.Button(
+    gui.cancel_btn = tk.Button(
         btn_frame,
         text="Cancel",
         command=gui.cancel_conversion,
         state=tk.DISABLED,
-        style='Danger.TButton'
+        bg='#dc2626', fg='#ffffff',
+        activebackground='#b91c1c', activeforeground='#ffffff',
+        font=('', 10),
+        padx=16, pady=6, relief=tk.RAISED, cursor='hand2',
+        disabledforeground='#999999'
     )
     gui.cancel_btn.pack(side=tk.LEFT, padx=5)
