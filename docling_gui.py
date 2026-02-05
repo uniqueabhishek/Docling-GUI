@@ -26,10 +26,11 @@ from conversion_utils import (
 
 # Try to import drag-drop support
 try:
-    from tkinterdnd2 import TkinterDnD
+    from tkinterdnd2 import TkinterDnD, DND_FILES
     DND_AVAILABLE = True
 except ImportError:
     DND_AVAILABLE = False
+    DND_FILES = None
 
 
 class DoclingGUI:
@@ -43,6 +44,9 @@ class DoclingGUI:
         self.root.title("Docling GUI - Full-Featured Document Converter")
         self.root.geometry("1000x800")
         self.root.minsize(900, 700)
+
+        # Setup modern theme and styling
+        self.setup_theme()
 
         # File list storage
         self.file_list = []
@@ -77,10 +81,95 @@ class DoclingGUI:
         gui_panels.create_menu(self)
         self.create_main_layout()
 
+        # Setup drag and drop if available
+        self.setup_drag_drop()
+
         # Check if docling is available
         if not DOCLING_AVAILABLE:
             self.log_message(
                 "WARNING: Docling is not installed. Please run: pip install docling")
+
+    def setup_theme(self):
+        """Setup modern theme and custom styling"""
+        style = ttk.Style()
+
+        # Use modern theme based on platform
+        available_themes = style.theme_names()
+        if 'vista' in available_themes:  # Windows
+            style.theme_use('vista')
+        elif 'aqua' in available_themes:  # macOS
+            style.theme_use('aqua')
+        elif 'clam' in available_themes:  # Cross-platform modern
+            style.theme_use('clam')
+
+        # Custom button styles with modern colors
+        style.configure(
+            'Primary.TButton',
+            foreground='#ffffff',
+            background='#2563eb',
+            font=('', 10, 'bold'),
+            padding=10
+        )
+        style.map(
+            'Primary.TButton',
+            background=[('active', '#1d4ed8'), ('pressed', '#1e40af')]
+        )
+
+        style.configure(
+            'Success.TButton',
+            foreground='#ffffff',
+            background='#16a34a',
+            font=('', 10, 'bold'),
+            padding=10
+        )
+        style.map(
+            'Success.TButton',
+            background=[('active', '#15803d'), ('pressed', '#166534')]
+        )
+
+        style.configure(
+            'Danger.TButton',
+            foreground='#ffffff',
+            background='#dc2626',
+            font=('', 10),
+            padding=10
+        )
+        style.map(
+            'Danger.TButton',
+            background=[('active', '#b91c1c'), ('pressed', '#991b1b')]
+        )
+
+        # Enhanced progress bar
+        style.configure(
+            'Horizontal.TProgressbar',
+            troughcolor='#e5e7eb',
+            background='#2563eb',
+            thickness=20
+        )
+
+        # Notebook (tabs) styling
+        style.configure(
+            'TNotebook.Tab',
+            padding=[12, 8],
+            font=('', 9)
+        )
+        style.map(
+            'TNotebook.Tab',
+            background=[('selected', '#2563eb')],
+            foreground=[('selected', '#ffffff')]
+        )
+
+        # LabelFrame styling
+        style.configure(
+            'TLabelframe',
+            borderwidth=2,
+            relief='solid'
+        )
+        style.configure(
+            'TLabelframe.Label',
+            font=('', 10, 'bold'),
+            foreground='#1f2937'
+        )
 
     def init_variables(self):
         """Initialize all option variables"""
@@ -373,6 +462,68 @@ class DoclingGUI:
     def set_default_output(self):
         """Set default output directory"""
         self.browse_output_dir()
+
+    # ==================== Drag and Drop Support ====================
+
+    def setup_drag_drop(self):
+        """Setup drag and drop support for file listbox"""
+        if not DND_AVAILABLE:
+            self.log_message(
+                "Drag & Drop not available. Install tkinterdnd2 for this feature.")
+            return
+
+        try:
+            # Register the listbox as a drop target
+            self.file_listbox.drop_target_register(DND_FILES)
+            self.file_listbox.dnd_bind('<<Drop>>', self.on_drop)
+
+            # Add visual feedback on drag over
+            self.file_listbox.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+            self.file_listbox.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+
+            self.log_message(
+                "Drag & Drop enabled - Drop files or folders here!")
+        except Exception as e:  # pylint: disable=broad-except
+            self.log_message(f"Could not enable drag & drop: {e}")
+
+    def on_drag_enter(self, _event):
+        """Visual feedback when dragging over the listbox"""
+        self.file_listbox.config(background='#e8f4f8')
+
+    def on_drag_leave(self, _event):
+        """Remove visual feedback when drag leaves"""
+        self.file_listbox.config(background='white')
+
+    def on_drop(self, event):
+        """Handle dropped files and folders"""
+        # Remove visual feedback
+        self.file_listbox.config(background='white')
+
+        # Get dropped files/folders
+        files = self.root.tk.splitlist(event.data)
+
+        added_count = 0
+        for item in files:
+            # Clean up the path (remove curly braces if present)
+            item = item.strip('{}')
+
+            if os.path.isfile(item):
+                # Single file
+                self.add_file_to_list(item)
+                added_count += 1
+            elif os.path.isdir(item):
+                # Directory - add all supported files
+                for root, _, dir_files in os.walk(item):
+                    for file in dir_files:
+                        ext = os.path.splitext(file)[1].lower()
+                        if ext in config.SUPPORTED_EXTENSIONS:
+                            self.add_file_to_list(os.path.join(root, file))
+                            added_count += 1
+
+        if added_count > 0:
+            self.log_message(f"Added {added_count} file(s) via drag & drop")
+        else:
+            self.log_message("No supported files found in dropped items")
 
     # ==================== Conversion Logic ====================
 

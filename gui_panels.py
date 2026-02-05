@@ -5,6 +5,7 @@ This module separates the UI construction code from the main controller logic.
 import tkinter as tk
 from tkinter import ttk
 import config
+from tooltip import create_tooltip
 
 
 def create_menu(gui):
@@ -104,6 +105,12 @@ def create_input_panel(gui, parent):
     gui.file_count_label = ttk.Label(info_frame, text="0 files")
     gui.file_count_label.pack(side=tk.LEFT)
 
+    # Drag and drop hint
+    ttk.Label(
+        info_frame, text="💡 Drag & drop files/folders here",
+        foreground="#2563eb", font=('', 8, 'italic')
+    ).pack(side=tk.LEFT, padx=(10, 0))
+
     supported_text = "PDF, DOCX, PPTX, XLSX, HTML, Images, Audio"
     ttk.Label(
         info_frame, text=supported_text, foreground="gray", font=('', 8)
@@ -146,6 +153,12 @@ def _create_basic_options_tab(gui):
     )
     pipeline_combo.pack(side=tk.LEFT, padx=(10, 20))
     pipeline_combo.bind('<<ComboboxSelected>>', gui.on_pipeline_change)
+    create_tooltip(
+        pipeline_combo,
+        "Standard: Default processing\n"
+        "VLM: Vision Language Model for advanced image understanding\n"
+        "ASR: Automatic Speech Recognition for audio files"
+    )
 
     # VLM Model (hidden by default)
     gui.vlm_frame = ttk.Frame(pipeline_frame)
@@ -158,6 +171,12 @@ def _create_basic_options_tab(gui):
         width=15
     )
     vlm_combo.pack(side=tk.LEFT, padx=(5, 0))
+    create_tooltip(
+        vlm_combo,
+        "Vision Language Model for image description:\n"
+        "granite_docling: IBM's specialized model\n"
+        "smolvlm: Smaller, faster alternative"
+    )
 
     # Output Format
     format_frame = ttk.Frame(tab)
@@ -172,6 +191,14 @@ def _create_basic_options_tab(gui):
         width=15
     )
     format_combo.pack(side=tk.LEFT, padx=(10, 0))
+    create_tooltip(
+        format_combo,
+        "Choose output format:\n"
+        "Markdown: Easy to read, widely compatible\n"
+        "HTML: For web display\n"
+        "JSON: Structured data with metadata\n"
+        "Text: Plain text only"
+    )
 
     # Separator
     ttk.Separator(tab, orient='horizontal').pack(fill=tk.X, pady=10)
@@ -187,25 +214,48 @@ def _create_basic_options_tab(gui):
     left_col = ttk.Frame(features_frame)
     left_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-    ttk.Checkbutton(left_col, text="Enable OCR",
-                    variable=gui.enable_ocr).pack(anchor=tk.W, pady=2)
-    ttk.Checkbutton(left_col, text="Extract Tables",
-                    variable=gui.do_table_structure).pack(anchor=tk.W, pady=2)
-    ttk.Checkbutton(left_col, text="Formula Enrichment",
-                    variable=gui.do_formula_enrichment).pack(anchor=tk.W, pady=2)
-    ttk.Checkbutton(left_col, text="Code Enrichment",
-                    variable=gui.do_code_enrichment).pack(anchor=tk.W, pady=2)
+    ocr_check = ttk.Checkbutton(left_col, text="Enable OCR",
+                                variable=gui.enable_ocr)
+    ocr_check.pack(anchor=tk.W, pady=2)
+    create_tooltip(ocr_check, "Extract text from images and scanned documents")
+
+    table_check = ttk.Checkbutton(left_col, text="Extract Tables",
+                                  variable=gui.do_table_structure)
+    table_check.pack(anchor=tk.W, pady=2)
+    create_tooltip(
+        table_check, "Detect and extract table structures with cell data")
+
+    formula_check = ttk.Checkbutton(left_col, text="Formula Enrichment",
+                                    variable=gui.do_formula_enrichment)
+    formula_check.pack(anchor=tk.W, pady=2)
+    create_tooltip(
+        formula_check, "Detect and convert mathematical formulas to LaTeX")
+
+    code_check = ttk.Checkbutton(left_col, text="Code Enrichment",
+                                 variable=gui.do_code_enrichment)
+    code_check.pack(anchor=tk.W, pady=2)
+    create_tooltip(code_check, "Detect and preserve code blocks with syntax")
 
     # Right column
     right_col = ttk.Frame(features_frame)
     right_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-    ttk.Checkbutton(right_col, text="Picture Classification",
-                    variable=gui.do_picture_classification).pack(anchor=tk.W, pady=2)
-    ttk.Checkbutton(right_col, text="Picture Description (VLM)",
-                    variable=gui.do_picture_description).pack(anchor=tk.W, pady=2)
-    ttk.Checkbutton(right_col, text="Export Pictures",
-                    variable=gui.generate_picture_images).pack(anchor=tk.W, pady=2)
+    pic_class_check = ttk.Checkbutton(right_col, text="Picture Classification",
+                                      variable=gui.do_picture_classification)
+    pic_class_check.pack(anchor=tk.W, pady=2)
+    create_tooltip(pic_class_check,
+                   "Classify images (chart, diagram, photo, etc.)")
+
+    pic_desc_check = ttk.Checkbutton(right_col, text="Picture Description (VLM)",
+                                     variable=gui.do_picture_description)
+    pic_desc_check.pack(anchor=tk.W, pady=2)
+    create_tooltip(
+        pic_desc_check, "Generate AI descriptions for images (requires VLM)")
+
+    export_pic_check = ttk.Checkbutton(right_col, text="Export Pictures",
+                                       variable=gui.generate_picture_images)
+    export_pic_check.pack(anchor=tk.W, pady=2)
+    create_tooltip(export_pic_check, "Save extracted images as separate files")
 
 
 def _create_ocr_options_tab(gui):
@@ -227,6 +277,13 @@ def _create_ocr_options_tab(gui):
         width=15
     )
     engine_combo.pack(side=tk.LEFT, padx=(10, 0))
+    create_tooltip(
+        engine_combo,
+        "OCR Engine Selection:\n"
+        "Auto: Uses RapidOCR (recommended)\n"
+        "RapidOCR: Fast, built-in engine\n"
+        "EasyOCR: Deep learning-based (requires installation)"
+    )
 
     # Language
     lang_frame = ttk.Frame(tab)
@@ -242,6 +299,8 @@ def _create_ocr_options_tab(gui):
         width=15
     )
     lang_combo.pack(side=tk.LEFT, padx=(10, 0))
+    create_tooltip(
+        lang_combo, "Select the primary language for OCR text recognition")
 
     # Language hint
     ttk.Label(lang_frame, text="(English, German, Chinese, etc.)",
@@ -279,8 +338,11 @@ def _create_ocr_options_tab(gui):
     # Note about OCR
     note_frame = ttk.Frame(tab)
     note_frame.pack(fill=tk.X, pady=(20, 0))
-    ttk.Label(note_frame, text="Note: RapidOCR is built-in. EasyOCR requires separate installation.",
-              foreground="gray", font=('', 8)).pack(anchor=tk.W)
+    ttk.Label(
+        note_frame,
+        text="Note: RapidOCR is built-in. EasyOCR requires separate installation.",
+        foreground="gray", font=('', 8)
+    ).pack(anchor=tk.W)
 
 
 def _create_advanced_options_tab(gui):
@@ -551,14 +613,16 @@ def create_controls_panel(gui, parent):
     gui.convert_selected_btn = ttk.Button(
         btn_frame,
         text="Convert Selected",
-        command=gui.convert_selected
+        command=gui.convert_selected,
+        style='Primary.TButton'
     )
     gui.convert_selected_btn.pack(side=tk.LEFT, padx=5)
 
     gui.convert_all_btn = ttk.Button(
         btn_frame,
         text="Convert All",
-        command=gui.convert_all
+        command=gui.convert_all,
+        style='Success.TButton'
     )
     gui.convert_all_btn.pack(side=tk.LEFT, padx=5)
 
@@ -566,6 +630,7 @@ def create_controls_panel(gui, parent):
         btn_frame,
         text="Cancel",
         command=gui.cancel_conversion,
-        state=tk.DISABLED
+        state=tk.DISABLED,
+        style='Danger.TButton'
     )
     gui.cancel_btn.pack(side=tk.LEFT, padx=5)
