@@ -26,14 +26,12 @@ except ImportError:
 try:
     from docling.datamodel.pipeline_options import (
         EasyOcrOptions,
-        TesseractOcrOptions,
         RapidOcrOptions,
     )
     OCR_OPTIONS_AVAILABLE = True
 except ImportError:
     OCR_OPTIONS_AVAILABLE = False
     EasyOcrOptions = None
-    TesseractOcrOptions = None
     RapidOcrOptions = None
 
 # Try to import OcrMac (macOS only)
@@ -135,7 +133,7 @@ def build_pipeline_options(settings):
 
     # OCR options
     if OCR_OPTIONS_AVAILABLE and settings.get('enable_ocr', False):
-        ocr_engine = settings.get('ocr_engine', 'EasyOCR')
+        ocr_engine = settings.get('ocr_engine', 'RapidOCR')
         lang = settings.get('ocr_language', 'en')
         force_full_page = settings.get('force_full_page_ocr', True)
         confidence = settings.get('ocr_confidence', 0.8)
@@ -146,12 +144,7 @@ def build_pipeline_options(settings):
                 force_full_page_ocr=force_full_page,
                 confidence_threshold=confidence
             )
-        elif ocr_engine == "Tesseract":
-            pipeline_options.ocr_options = TesseractOcrOptions(
-                lang=lang,
-                force_full_page_ocr=force_full_page
-            )
-        elif ocr_engine == "RapidOCR":
+        elif ocr_engine == "RapidOCR" or ocr_engine == "Auto":
             pipeline_options.ocr_options = RapidOcrOptions(
                 lang=[lang],
                 force_full_page_ocr=force_full_page

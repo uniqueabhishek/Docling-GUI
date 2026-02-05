@@ -16,7 +16,6 @@ import config
 import gui_panels
 from conversion_utils import (
     DOCLING_AVAILABLE,
-    OCRMAC_AVAILABLE,
     get_output_extension,
     export_content,
     build_pipeline_options,
@@ -100,7 +99,7 @@ class DoclingGUI:
         self.do_picture_description = tk.BooleanVar(value=False)
 
         # OCR Options
-        self.ocr_engine = tk.StringVar(value="Auto")
+        self.ocr_engine = tk.StringVar(value="RapidOCR")
         self.ocr_language = tk.StringVar(value="en")
         self.force_full_page_ocr = tk.BooleanVar(value=False)
         self.ocr_confidence = tk.DoubleVar(value=0.5)
@@ -285,15 +284,28 @@ class DoclingGUI:
 
     def on_file_select(self, _):
         """Handle file selection for preview"""
-        selection = self.file_listbox.curselection()
-        if selection:
-            index = selection[0]
-            filepath = self.file_list[index]
-            self.show_file_info(filepath)
+        try:
+            selection = self.file_listbox.curselection()
+            if selection:
+                index = selection[0]
+                # Ensure index is within bounds
+                if index < len(self.file_list):
+                    filepath = self.file_list[index]
+                    print(f"DEBUG: Selected file: {filepath}")
+                    self.show_file_info(filepath)
+                else:
+                    print(f"DEBUG: Index {index} out of bounds")
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"ERROR in on_file_select: {e}")
+            self.log_message(f"Selection error: {e}")
 
     def show_file_info(self, filepath):
         """Show file info in preview panel"""
         try:
+            if not os.path.exists(filepath):
+                self.log_message(f"File not found: {filepath}")
+                return
+
             stat = os.stat(filepath)
             size = stat.st_size
             if size < 1024:
@@ -309,12 +321,25 @@ class DoclingGUI:
             info += f"Size: {size_str}\n"
             info += f"Type: {config.SUPPORTED_EXTENSIONS.get(ext, 'Unknown')}\n"
 
+            print(f"DEBUG: Updating preview with:\n{info}")
+
             self.preview_text.config(state=tk.NORMAL)
             self.preview_text.delete(1.0, tk.END)
             self.preview_text.insert(tk.END, info)
             self.preview_text.config(state=tk.DISABLED)
+
+            # Switch to preview tab if not already there
+            self.preview_notebook.select(0)
+
         except Exception as e:  # pylint: disable=broad-except
+            print(f"ERROR in show_file_info: {e}")
             self.log_message(f"Error reading file info: {e}")
+
+            # Show error in preview window as well
+            self.preview_text.config(state=tk.NORMAL)
+            self.preview_text.delete(1.0, tk.END)
+            self.preview_text.insert(tk.END, f"Error reading file info: {e}")
+            self.preview_text.config(state=tk.DISABLED)
 
     def show_context_menu(self, event):
         """Show right-click context menu"""

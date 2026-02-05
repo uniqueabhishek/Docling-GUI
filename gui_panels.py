@@ -3,10 +3,8 @@ GUI Panels and Layout Components for Docling GUI.
 This module separates the UI construction code from the main controller logic.
 """
 import tkinter as tk
-from tkinter import ttk, filedialog
-import os
+from tkinter import ttk
 import config
-from conversion_utils import OCRMAC_AVAILABLE
 
 
 def create_menu(gui):
@@ -220,9 +218,7 @@ def _create_ocr_options_tab(gui):
     engine_frame.pack(fill=tk.X, pady=5)
 
     ttk.Label(engine_frame, text="OCR Engine:").pack(side=tk.LEFT)
-    engines = ["Auto", "Tesseract", "EasyOCR", "RapidOCR"]
-    if OCRMAC_AVAILABLE:
-        engines.append("OcrMac")
+    engines = ["Auto", "RapidOCR", "EasyOCR"]
     engine_combo = ttk.Combobox(
         engine_frame,
         textvariable=gui.ocr_engine,
@@ -283,7 +279,7 @@ def _create_ocr_options_tab(gui):
     # Note about OCR
     note_frame = ttk.Frame(tab)
     note_frame.pack(fill=tk.X, pady=(20, 0))
-    ttk.Label(note_frame, text="Note: OCR requires Tesseract or EasyOCR to be installed.",
+    ttk.Label(note_frame, text="Note: RapidOCR is built-in. EasyOCR requires separate installation.",
               foreground="gray", font=('', 8)).pack(anchor=tk.W)
 
 
