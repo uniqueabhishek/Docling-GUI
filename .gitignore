@@ -20,6 +20,7 @@ build/
 install_log.txt
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/settings.json
 .idea/
 .claude/

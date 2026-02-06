@@ -2,7 +2,21 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:docling-project.github.io)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(dir:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(pip install:*)",
+      "Bash(python -c:*)",
+      "Bash(\"C:\\\\Users\\\\abhis\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python313\\\\python.exe\" -c \"from docling.document_converter import DocumentConverter; print\\(''DocumentConverter OK''\\)\")",
+      "Bash(uv venv:*)",
+      "Bash(uv sync:*)",
+      "Bash(set \"VIRTUAL_ENV=\")",
+      "Bash(uv python pin:*)",
+      "Bash(.venvScriptspython.exe -c \"from docling.document_converter import DocumentConverter; print\\(''Docling OK''\\); import tkinter; print\\(''Tkinter OK''\\)\")",
+      "Bash(uv run python:*)"
     ]
   }
 }

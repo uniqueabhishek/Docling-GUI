@@ -1,6 +1,8 @@
 Based on my review of the UI code, here are comprehensive improvement suggestions:
 
 🎨 UI Improvement Recommendations
+
+
 1. Visual Polish & Modern Design
 Current Issues:
 Default Tkinter theme looks dated
@@ -18,6 +20,8 @@ style.theme_use('clam')  # or 'vista' on Windows, 'aqua' on macOS
 style.configure('Accent.TButton', foreground='#2563eb', font=('', 10, 'bold'))
 style.configure('Success.TButton', foreground='#16a34a')
 style.configure('Danger.TButton', foreground='#dc2626')
+
+
 2. Usability Improvements
 A. Add Tooltips for Better UX
 Users may not understand technical terms like "VLM", "Formula Enrichment", etc.
@@ -54,6 +58,8 @@ def on_drop(self, event):
     files = self.root.tk.splitlist(event.data)
     for file in files:
         self.add_file_to_list(file)
+
+
 3. Layout & Organization
 A. Add Status Icons
 Show visual feedback for file status (pending, processing, complete, error)
@@ -73,6 +79,8 @@ Files completed count (e.g., "3/10 files")
 python
 # In conversion_worker
 self.update_status(f"Converting {i+1}/{total}: {filename}")
+
+
 4. Feature Enhancements
 A. Quick Presets
 Add preset configurations for common use cases:
@@ -93,6 +101,8 @@ File Name          | Status    | Output Size | Time
 -------------------|-----------|-------------|------
 document.pdf       | ✓ Success | 245 KB      | 3.2s
 report.docx        | ✗ Failed  | -           | -
+
+
 5. Accessibility & Keyboard Shortcuts
 Add more keyboard shortcuts:
 
@@ -101,6 +111,8 @@ Delete - Remove selected files
 Ctrl+Enter - Start conversion
 Escape - Cancel conversion
 F5 - Refresh file list
+
+
 6. Error Handling & Validation
 Current Issues:
 No validation before conversion starts
@@ -118,6 +130,8 @@ def validate_before_conversion(self):
         return False
 
     return True
+
+
 7. Performance Indicators
 Add visual indicators for:
 
@@ -130,6 +144,8 @@ if rapidocr_available:
     status_label.config(text="✓ RapidOCR Ready", foreground="green")
 else:
     status_label.config(text="✗ RapidOCR Not Found", foreground="red")
+
+    
 8. Dark Mode Support
 Add theme toggle:
 

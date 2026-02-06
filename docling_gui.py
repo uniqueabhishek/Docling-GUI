@@ -224,9 +224,10 @@ class DoclingGUI:
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Top section: Input and Options side by side
-        top_frame = ttk.Frame(main_frame)
-        top_frame.pack(fill=tk.BOTH, expand=True)
+        # Top section: Input and Options side by side (fixed height)
+        top_frame = ttk.Frame(main_frame, height=300)
+        top_frame.pack(fill=tk.BOTH)
+        top_frame.pack_propagate(False)
 
         # Configure grid weights
         top_frame.columnconfigure(0, weight=2)
@@ -240,11 +241,11 @@ class DoclingGUI:
         # Output settings
         gui_panels.create_output_panel(self, main_frame)
 
-        # Preview/Log panel
-        gui_panels.create_preview_panel(self, main_frame)
-
-        # Progress and controls
+        # Progress and controls (pack before preview so buttons are always visible)
         gui_panels.create_controls_panel(self, main_frame)
+
+        # Preview/Log panel (expands to fill remaining space)
+        gui_panels.create_preview_panel(self, main_frame)
 
     # ==================== Event Handlers ====================
 
