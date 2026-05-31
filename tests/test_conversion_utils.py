@@ -135,6 +135,23 @@ class BuildPipelineOptionsTests(unittest.TestCase):
         self.assertEqual(fast.table_structure_options.mode, TableFormerMode.FAST)
         self.assertEqual(accurate.table_structure_options.mode, TableFormerMode.ACCURATE)
 
+    @unittest.skipUnless(cu.PICTURE_DESCRIPTION_AVAILABLE, "presets unavailable")
+    def test_picture_description_follows_vlm_model(self):
+        granite = cu.build_pipeline_options({
+            "do_picture_description": True,
+            "vlm_model": "granite_docling",
+            "device": "cpu",
+        })
+        smol = cu.build_pipeline_options({
+            "do_picture_description": True,
+            "vlm_model": "smolvlm",
+            "device": "cpu",
+        })
+        self.assertIs(
+            granite.picture_description_options, cu.granite_picture_description)
+        self.assertIs(
+            smol.picture_description_options, cu.smolvlm_picture_description)
+
 
 if __name__ == "__main__":
     unittest.main()

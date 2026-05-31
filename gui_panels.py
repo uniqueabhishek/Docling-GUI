@@ -252,7 +252,11 @@ def _create_basic_options_tab(gui):
                                      variable=gui.do_picture_description)
     pic_desc_check.pack(anchor=tk.W, pady=2)
     create_tooltip(
-        pic_desc_check, "Generate AI descriptions for images (requires VLM)")
+        pic_desc_check,
+        "Generate AI descriptions for images.\n"
+        "Downloads and runs the description model matching the\n"
+        "selected VLM Model (granite or smolvlm) on first use."
+    )
 
     export_pic_check = ttk.Checkbutton(right_col, text="Export Pictures",
                                        variable=gui.generate_picture_images)

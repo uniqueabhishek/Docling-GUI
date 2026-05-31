@@ -80,6 +80,19 @@ except ImportError:
     OCRMAC_AVAILABLE = False
     OcrMacOptions = None
 
+# Try to import picture-description presets so the description model can
+# follow the user's VLM model selection.
+try:
+    from docling.datamodel.pipeline_options import (
+        granite_picture_description,
+        smolvlm_picture_description,
+    )
+    PICTURE_DESCRIPTION_AVAILABLE = True
+except ImportError:
+    PICTURE_DESCRIPTION_AVAILABLE = False
+    granite_picture_description = None
+    smolvlm_picture_description = None
+
 __all__ = [
     'DOCLING_AVAILABLE',
     'OCR_OPTIONS_AVAILABLE',
@@ -167,6 +180,15 @@ def build_pipeline_options(settings):
     if hasattr(pipeline_options, 'do_code_enrichment'):
         pipeline_options.do_code_enrichment = settings.get(
             'do_code_enrichment', True)
+
+    # When picture description is enabled, pick the description model to
+    # match the selected VLM model (granite -> granite, otherwise smolvlm).
+    # Without this the description model ignores the VLM model selector.
+    if settings.get('do_picture_description', False) and PICTURE_DESCRIPTION_AVAILABLE:
+        if settings.get('vlm_model') == 'granite_docling':
+            pipeline_options.picture_description_options = granite_picture_description
+        else:
+            pipeline_options.picture_description_options = smolvlm_picture_description
 
     # Table structure options
     if hasattr(pipeline_options, 'table_structure_options'):
