@@ -597,8 +597,14 @@ class DoclingGUI:
                 self.log_message(f"Converting: {filename}")
 
                 try:
+                    # Apply page limit (first N pages) if set; 0 = all pages
+                    convert_kwargs = {}
+                    max_pages = settings.get('max_pages', 0)
+                    if max_pages and max_pages > 0:
+                        convert_kwargs['page_range'] = (1, max_pages)
+
                     # Convert the document
-                    result = self.converter.convert(filepath)
+                    result = self.converter.convert(filepath, **convert_kwargs)
 
                     # Export based on selected format
                     output_format = settings['output_format']

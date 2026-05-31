@@ -6,7 +6,7 @@ A full-featured graphical interface for [IBM Docling](https://github.com/DS4SD/d
 
 *   **User-Friendly Interface**: Easy-to-use GUI built with Tkinter.
 *   **Multiple Formats**: Convert PDF, DOCX, PPTX, XLSX, HTML, Images, and Audio.
-*   **OCR Support**: Integrated OCR using RapidOCR (Built-in/Default) or EasyOCR.
+*   **OCR Support**: Built-in OCR via RapidOCR (default). EasyOCR is also supported but must be installed separately.
 *   **Advanced Options**: Configure table extraction, image generation, and hardware acceleration (CPU/GPU).
 *   **Batch Processing**: Convert single files or entire folders.
 *   **Preview**: View file details and conversion preview directly in the app.
@@ -43,7 +43,7 @@ python main.py
 ## Configuration
 
 Settings are adjustable via the GUI tabs:
-*   **Basic**: Output format, pipeline type (Standard, VLM).
+*   **Basic**: Output format, pipeline type (Standard, VLM, ASR).
 *   **OCR**: Engine selection, language, confidence threshold.
 *   **Advanced**: Page limits, timeouts, image scaling.
 *   **Accelerator**: CPU threads, GPU selection (CUDA/MPS).
