@@ -7,6 +7,12 @@ from pathlib import Path
 # Location of the persisted user settings (saved on close, loaded on launch).
 SETTINGS_FILE = Path.home() / ".docling_gui_settings.json"
 
+# Location of the persistent, rotating debug log. Captures full detail (user
+# actions, Docling's own internal logs, and complete tracebacks) so problems
+# can be diagnosed after the fact. Lives next to the settings file.
+LOG_DIR = Path.home() / ".docling_gui_logs"
+LOG_FILE = LOG_DIR / "docling_gui.log"
+
 # OCR engines offered in the UI. OcrMac relies on Apple's Vision framework
 # and is only usable on macOS, so it is hidden on other platforms.
 OCR_ENGINES = ["Auto", "RapidOCR", "EasyOCR"]

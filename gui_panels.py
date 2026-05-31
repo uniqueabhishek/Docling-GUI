@@ -43,6 +43,11 @@ def create_menu(gui):
     help_menu.add_command(
         label="Docling Documentation", command=gui.open_docs)
     help_menu.add_separator()
+    help_menu.add_command(
+        label="Open Log File", command=gui.open_log_file)
+    help_menu.add_command(
+        label="Open Log Folder", command=gui.open_log_folder)
+    help_menu.add_separator()
     help_menu.add_command(label="About", command=gui.show_about)
 
     # Keyboard shortcuts

@@ -7,6 +7,7 @@ import contextlib
 import json
 import os
 import subprocess
+import sys
 import threading
 import tkinter as tk
 import webbrowser
@@ -18,6 +19,7 @@ from typing import Any
 # Import refactored modules
 import config
 import gui_panels
+import logging_setup
 from conversion_utils import (
     DOCLING_AVAILABLE,
     build_converter,
@@ -26,6 +28,7 @@ from conversion_utils import (
     pdf_needs_password,
     pdf_password_valid,
 )
+from logging_setup import logger
 
 # Try to import drag-drop support
 try:
@@ -139,6 +142,11 @@ class DoclingGUI:
         self.root.geometry("1000x800")
         self.root.minsize(900, 700)
 
+        # Start persistent file logging as early as possible, then record an
+        # environment banner (file only - the Log tab doesn't exist yet).
+        logging_setup.setup_file_logging()
+        logging_setup.log_session_header(DND_AVAILABLE)
+
         # Setup modern theme and styling
         self.setup_theme()
 
@@ -177,6 +185,9 @@ class DoclingGUI:
         # Build the UI
         gui_panels.create_menu(self)
         self.create_main_layout()
+
+        # Mirror log records into the now-existing Log tab.
+        logging_setup.attach_gui_handler(self.log_text, self.root)
 
         # Setup drag and drop if available
         self.setup_drag_drop()
@@ -280,6 +291,7 @@ class DoclingGUI:
     def on_pipeline_change(self, _=None):
         """Handle pipeline type change"""
         pipeline = self.pipeline_type.get()
+        logger.debug("Pipeline set to %s", pipeline)
         if pipeline == "VLM":
             self.vlm_frame.pack(side=tk.LEFT)
         else:
@@ -302,6 +314,7 @@ class DoclingGUI:
         # Refresh dependent widget states (e.g. confidence slider)
         self.on_ocr_engine_change()
 
+        self.log_message("All options reset to defaults")
         messagebox.showinfo(
             "Reset", "All options have been reset to defaults.")
 
@@ -352,6 +365,7 @@ class DoclingGUI:
                 display_name = os.path.basename(filepath)
                 self.file_listbox.insert(tk.END, display_name)
                 self.update_file_count()
+                logger.debug("Added file: %s", filepath)
                 return True
             else:
                 self.log_message(f"Unsupported file type: {filepath}")
@@ -363,13 +377,18 @@ class DoclingGUI:
         for index in reversed(selection):
             self.file_listbox.delete(index)
             del self.file_list[index]
+        if selection:
+            self.log_message(f"Removed {len(selection)} file(s) from the list")
         self.update_file_count()
 
     def clear_files(self):
         """Clear all files from the list"""
+        count = len(self.file_list)
         self.file_listbox.delete(0, tk.END)
         self.file_list.clear()
         self.update_file_count()
+        if count:
+            self.log_message(f"Cleared {count} file(s) from the list")
 
     def update_file_count(self):
         """Update the file count label"""
@@ -387,7 +406,7 @@ class DoclingGUI:
                     filepath = self.file_list[index]
                     self.show_file_info(filepath)
         except Exception as e:  # pylint: disable=broad-except
-            self.log_message(f"Selection error: {e}")
+            self.log_error(f"Selection error: {e}")
 
     def show_file_info(self, filepath):
         """Show file info in preview panel"""
@@ -420,7 +439,7 @@ class DoclingGUI:
             self.preview_notebook.select(0)
 
         except Exception as e:  # pylint: disable=broad-except
-            self.log_message(f"Error reading file info: {e}")
+            self.log_error(f"Error reading file info: {e}")
 
             # Show error in preview window as well
             self.preview_text.config(state=tk.NORMAL)
@@ -454,6 +473,7 @@ class DoclingGUI:
         folder = filedialog.askdirectory(title="Select Output Directory")
         if folder:
             self.output_directory.set(folder)
+            logger.debug("Output directory set to %s", folder)
 
     def set_default_output(self):
         """Set default output directory"""
@@ -484,7 +504,7 @@ class DoclingGUI:
             self.log_message(
                 "Drag & Drop enabled - Drop files or folders here!")
         except Exception as e:  # pylint: disable=broad-except
-            self.log_message(f"Could not enable drag & drop: {e}")
+            self.log_error(f"Could not enable drag & drop: {e}")
 
     def on_drag_enter(self, _event):
         """Visual feedback when dragging over the listbox"""
@@ -588,6 +608,11 @@ class DoclingGUI:
                 f"Device: {settings['device']}, Threads: {settings['num_threads']}")
             self.log_message("================================")
 
+            # Full detail to the file only, for after-the-fact debugging.
+            logger.debug("Converting %d file(s): %s",
+                         len(files), [os.path.basename(f) for f in files])
+            logger.debug("Full settings: %s", settings)
+
             # Build converter with proper pipeline type
             self.converter, pipeline_name = build_converter(settings)
             self.log_message(f"Using {pipeline_name} pipeline")
@@ -658,7 +683,7 @@ class DoclingGUI:
                     self.update_preview(content[:5000])  # Limit preview size
 
                 except Exception as e:  # pylint: disable=broad-except
-                    self.log_message(f"  ERROR: {str(e)}")
+                    self.log_error(f"  ERROR converting {filename}: {e}")
                     failed += 1
 
                 # Update progress
@@ -672,7 +697,7 @@ class DoclingGUI:
             self.log_message("===========================")
 
         except Exception as e:  # pylint: disable=broad-except
-            self.log_message(f"Conversion error: {str(e)}")
+            self.log_error(f"Conversion error: {e}")
 
         finally:
             self.is_converting = False
@@ -746,6 +771,7 @@ class DoclingGUI:
     def cancel_conversion(self):
         """Cancel the ongoing conversion"""
         self.cancel_requested = True
+        self.log_message("Cancellation requested by user")
         self.update_status("Cancelling...")
 
     def conversion_finished(self):
@@ -770,15 +796,20 @@ class DoclingGUI:
         self.root.after(0, lambda: self.status_label.config(text=text))
 
     def log_message(self, message):
-        """Add message to log (thread-safe)"""
-        self.root.after(0, lambda: self._log_message(message))
+        """Log an informational message.
 
-    def _log_message(self, message):
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        self.log_text.config(state=tk.NORMAL)
-        self.log_text.insert(tk.END, f"[{timestamp}] {message}\n")
-        self.log_text.see(tk.END)
-        self.log_text.config(state=tk.DISABLED)
+        Goes to both the persistent file and the in-window Log tab. Thread-safe:
+        the logging handlers marshal the on-screen update onto the main thread.
+        """
+        logger.info(message)
+
+    def log_error(self, message):
+        """Log an error with its full traceback.
+
+        The complete traceback is written to the log file; the Log tab shows a
+        concise one-line error. Must be called from within an ``except`` block.
+        """
+        logger.exception(message)
 
     def update_preview(self, content):
         """Update preview panel (thread-safe)"""
@@ -799,6 +830,32 @@ class DoclingGUI:
     def show_about(self):
         """Show about dialog"""
         messagebox.showinfo("About Docling GUI", config.ABOUT_TEXT)
+
+    def open_log_file(self):
+        """Open the persistent debug log file in the default application."""
+        if not config.LOG_FILE.exists():
+            messagebox.showinfo(
+                "Log File",
+                f"No log file yet.\nIt will be created at:\n{config.LOG_FILE}")
+            return
+        self._open_path(config.LOG_FILE)
+
+    def open_log_folder(self):
+        """Open the folder containing the debug logs."""
+        self._open_path(config.LOG_DIR)
+
+    def _open_path(self, path):
+        """Open a file or folder with the OS default handler."""
+        path = str(path)
+        try:
+            if os.name == 'nt':
+                os.startfile(path)  # pylint: disable=no-member
+            elif sys.platform == 'darwin':
+                subprocess.run(['open', path], check=False)
+            else:
+                subprocess.run(['xdg-open', path], check=False)
+        except OSError as e:
+            self.log_error(f"Could not open {path}: {e}")
 
     # ==================== Settings Persistence ====================
 
