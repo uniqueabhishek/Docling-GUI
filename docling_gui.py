@@ -12,7 +12,7 @@ import tkinter as tk
 import webbrowser
 from datetime import datetime
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 from typing import Any
 
 # Import refactored modules
@@ -23,6 +23,8 @@ from conversion_utils import (
     build_converter,
     export_content,
     get_output_extension,
+    pdf_needs_password,
+    pdf_password_valid,
 )
 
 # Try to import drag-drop support
@@ -147,6 +149,8 @@ class DoclingGUI:
         self.is_converting = False
         self.cancel_requested = False
         self.converter: Any = None
+        # Remembered password for encrypted PDFs, reused across a batch.
+        self._pdf_password: Any = None
 
         # UI Components (created by gui_panels during layout construction)
         self.file_listbox: tk.Listbox
@@ -613,8 +617,9 @@ class DoclingGUI:
                     if max_file_size_mb and max_file_size_mb > 0:
                         convert_kwargs['max_file_size'] = max_file_size_mb * 1024 * 1024
 
-                    # Convert the document
-                    result = self.converter.convert(filepath, **convert_kwargs)
+                    # Convert the document (prompts for a password if encrypted)
+                    result = self._convert_document(
+                        filepath, convert_kwargs, settings, filename)
 
                     # Export based on selected format
                     output_format = settings['output_format']
@@ -672,6 +677,71 @@ class DoclingGUI:
         finally:
             self.is_converting = False
             self.root.after(0, self.conversion_finished)
+
+    def _convert_document(self, filepath, convert_kwargs, settings, filename):
+        """
+        Convert a document, prompting for a password if the PDF is encrypted.
+
+        Encryption is detected up front via pypdfium2 because Docling swallows
+        the underlying PDFium password error and only reports the document as
+        "not valid" - so we cannot reliably detect it from the raised exception.
+        Once the password is known, a converter that opens PDFs via the pypdfium2
+        backend with that password is built (the default docling-parse backend
+        cannot read encrypted PDFs even with the correct password).
+        A working password is remembered for the rest of the batch.
+        """
+        ext = os.path.splitext(filepath)[1].lower()
+        if ext == '.pdf' and pdf_needs_password(filepath):
+            password = self._resolve_pdf_password(filepath, filename)
+            converter: Any
+            converter, _ = build_converter(settings, password=password)
+            return converter.convert(filepath, **convert_kwargs)
+
+        return self.converter.convert(filepath, **convert_kwargs)
+
+    def _resolve_pdf_password(self, filepath, filename):
+        """
+        Return a password that opens the encrypted PDF, prompting the user as
+        needed and retrying until it is correct or they cancel/skip.
+        """
+        self.log_message(f"  {filename} is password-protected.")
+
+        # Reuse a password remembered from earlier in this batch if it works.
+        if self._pdf_password and pdf_password_valid(filepath, self._pdf_password):
+            return self._pdf_password
+
+        while True:
+            if self.cancel_requested:
+                raise RuntimeError("Conversion cancelled")
+
+            password = self.prompt_password(filename)
+            if not password:
+                raise RuntimeError("Password required but not provided")
+
+            if pdf_password_valid(filepath, password):
+                self._pdf_password = password  # remember for the rest of the batch
+                return password
+
+            self.log_message("  Incorrect password, please try again.")
+
+    def prompt_password(self, filename):
+        """Ask the user for a PDF password on the main thread (blocks the caller)."""
+        result = {}
+        done = threading.Event()
+
+        def ask():
+            result['password'] = simpledialog.askstring(
+                "Password Required",
+                f"'{filename}' is password-protected.\n"
+                "Enter the password to open it (leave blank to skip):",
+                show='*',
+                parent=self.root,
+            )
+            done.set()
+
+        self.root.after(0, ask)
+        done.wait()
+        return result.get('password')
 
     def cancel_conversion(self):
         """Cancel the ongoing conversion"""

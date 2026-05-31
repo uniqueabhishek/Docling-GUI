@@ -2,10 +2,21 @@
 Conversion utilities for Docling GUI
 """
 import json
+import os
 import re
+
+# Run Torch models in eager mode. Docling's enrichment models (e.g. the picture
+# classifier) otherwise try to torch.compile, which needs a C/C++ compiler
+# (MSVC `cl.exe` on Windows); without one the whole pipeline crashes with
+# "Pipeline StandardPdfPipeline failed". Eager mode is slightly slower but needs
+# no compiler. Must be set before docling/torch is imported.
+os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 
 # Try to import docling components
 try:
+    from pydantic import SecretStr
+    from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
+    from docling.datamodel.backend_options import PdfBackendOptions
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import (
         AcceleratorOptions,
@@ -27,6 +38,9 @@ except ImportError:
     PdfPipelineOptions = None
     TableFormerMode = None
     AcceleratorOptions = None
+    PdfBackendOptions = None
+    PyPdfiumDocumentBackend = None
+    SecretStr = None
 
 # Try to import VLM pipeline
 try:
@@ -103,6 +117,8 @@ __all__ = [
     'export_content',
     'build_pipeline_options',
     'build_converter',
+    'pdf_needs_password',
+    'pdf_password_valid',
     'DocumentConverter',
     'PdfFormatOption',
     'InputFormat',
@@ -245,10 +261,67 @@ def build_pipeline_options(settings):
     return pipeline_options
 
 
-def build_converter(settings):
+def pdf_needs_password(filepath):
+    """
+    Return True if the PDF requires a password to open.
+
+    Checked directly via pypdfium2 because Docling swallows the underlying
+    PDFium password error and only reports the document as "not valid".
+    """
+    try:
+        import pypdfium2 as pdfium
+        from pypdfium2._helpers.misc import PdfiumError
+    except ImportError:
+        return False
+    try:
+        doc = pdfium.PdfDocument(filepath)
+        doc.close()
+        return False
+    except PdfiumError as exc:
+        return "password" in str(exc).lower()
+    except Exception:  # pylint: disable=broad-except
+        # Not our concern here (corrupt/non-PDF) - let Docling report it.
+        return False
+
+
+def pdf_password_valid(filepath, password):
+    """Return True if ``password`` successfully opens the PDF."""
+    try:
+        import pypdfium2 as pdfium
+    except ImportError:
+        return True  # Can't verify; assume valid and let Docling try.
+    try:
+        doc = pdfium.PdfDocument(filepath, password=password)
+        doc.close()
+        return True
+    except Exception:  # pylint: disable=broad-except
+        return False
+
+
+def _pdf_password_kwargs(password):
+    """
+    Extra PdfFormatOption kwargs for opening an encrypted PDF.
+
+    The password is routed through the pypdfium2 backend rather than the default
+    docling-parse v4 backend: docling-parse cannot read encrypted PDFs (it
+    reports -1 pages even with the correct password), whereas the pypdfium2
+    backend opens them directly. Returns an empty dict when no password is set.
+    """
+    if not password or PdfBackendOptions is None or PyPdfiumDocumentBackend is None:
+        return {}
+    return {
+        'backend': PyPdfiumDocumentBackend,
+        'backend_options': PdfBackendOptions(password=SecretStr(password)),
+    }
+
+
+def build_converter(settings, password=None):
     """
     Build a DocumentConverter with proper pipeline and format options
     based on the selected pipeline type.
+
+    When ``password`` is provided, PDFs are opened via the pypdfium2 backend with
+    that password so encrypted documents can be read.
 
     Returns (converter, pipeline_name) tuple.
     """
@@ -256,6 +329,7 @@ def build_converter(settings):
         return None, "unavailable"
 
     pipeline_type = settings.get('pipeline_type', 'Standard')
+    pdf_pw_kwargs = _pdf_password_kwargs(password)
 
     accelerator_options = AcceleratorOptions(
         device=settings.get('device', 'auto'),
@@ -277,7 +351,8 @@ def build_converter(settings):
         # VLM operates on both PDF pages and standalone images.
         format_options = {
             InputFormat.PDF: PdfFormatOption(
-                pipeline_cls=VlmPipeline, pipeline_options=vlm_options),
+                pipeline_cls=VlmPipeline, pipeline_options=vlm_options,
+                **pdf_pw_kwargs),
         }
         if ImageFormatOption is not None:
             format_options[InputFormat.IMAGE] = ImageFormatOption(
@@ -306,9 +381,15 @@ def build_converter(settings):
     if pipeline_options:
         format_options = {
             InputFormat.PDF: PdfFormatOption(
-                pipeline_options=pipeline_options),
+                pipeline_options=pipeline_options, **pdf_pw_kwargs),
             InputFormat.IMAGE: ImageFormatOption(
                 pipeline_options=pipeline_options),
+        }
+        converter = DocumentConverter(format_options=format_options)
+    elif pdf_pw_kwargs:
+        # No pipeline tweaks, but a password is still needed to open the PDF.
+        format_options = {
+            InputFormat.PDF: PdfFormatOption(**pdf_pw_kwargs),
         }
         converter = DocumentConverter(format_options=format_options)
     else:
