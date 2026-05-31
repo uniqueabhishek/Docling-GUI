@@ -6,13 +6,13 @@ import re
 
 # Try to import docling components
 try:
-    from docling.document_converter import DocumentConverter, PdfFormatOption
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import (
+        AcceleratorOptions,
         PdfPipelineOptions,
         TableFormerMode,
-        AcceleratorOptions,
     )
+    from docling.document_converter import DocumentConverter, PdfFormatOption
     DOCLING_AVAILABLE = True
 except ImportError:
     DOCLING_AVAILABLE = False
@@ -25,19 +25,37 @@ except ImportError:
 
 # Try to import VLM pipeline
 try:
+    from docling.datamodel import vlm_model_specs
     from docling.datamodel.pipeline_options import VlmPipelineOptions
+    from docling.document_converter import ImageFormatOption
+    from docling.pipeline.vlm_pipeline import VlmPipeline
     VLM_AVAILABLE = True
 except ImportError:
     VLM_AVAILABLE = False
     VlmPipelineOptions = None
+    VlmPipeline = None
+    vlm_model_specs = None
+    ImageFormatOption = None
 
 # Try to import ASR pipeline
 try:
+    from docling.datamodel import asr_model_specs
     from docling.datamodel.pipeline_options import AsrPipelineOptions
+    from docling.document_converter import AudioFormatOption
+    from docling.pipeline.asr_pipeline import AsrPipeline
     ASR_AVAILABLE = True
 except ImportError:
     ASR_AVAILABLE = False
     AsrPipelineOptions = None
+    AsrPipeline = None
+    asr_model_specs = None
+    AudioFormatOption = None
+
+# Maps the GUI's VLM model names to docling model specifications.
+VLM_MODEL_SPECS = {
+    "granite_docling": "GRANITEDOCLING_TRANSFORMERS",
+    "smolvlm": "SMOLDOCLING_TRANSFORMERS",
+}
 
 # Try to import OCR options
 try:
@@ -214,12 +232,47 @@ def build_converter(settings):
 
     pipeline_type = settings.get('pipeline_type', 'Standard')
 
+    accelerator_options = AcceleratorOptions(
+        device=settings.get('device', 'auto'),
+        num_threads=settings.get('num_threads', 4),
+    )
+
     if pipeline_type == "VLM" and VLM_AVAILABLE:
-        converter = DocumentConverter(pipeline=VlmPipelineOptions)
+        vlm_options = VlmPipelineOptions(accelerator_options=accelerator_options)
+
+        # Select the underlying vision-language model spec.
+        spec_name = VLM_MODEL_SPECS.get(
+            settings.get('vlm_model', 'granite_docling'),
+            "GRANITEDOCLING_TRANSFORMERS",
+        )
+        spec = getattr(vlm_model_specs, spec_name, None)
+        if spec is not None:
+            vlm_options.vlm_options = spec
+
+        # VLM operates on both PDF pages and standalone images.
+        format_options = {
+            InputFormat.PDF: PdfFormatOption(
+                pipeline_cls=VlmPipeline, pipeline_options=vlm_options),
+        }
+        if ImageFormatOption is not None:
+            format_options[InputFormat.IMAGE] = ImageFormatOption(
+                pipeline_cls=VlmPipeline, pipeline_options=vlm_options)
+
+        converter = DocumentConverter(format_options=format_options)
         return converter, "VLM"
 
     if pipeline_type == "ASR" and ASR_AVAILABLE:
-        converter = DocumentConverter(pipeline=AsrPipelineOptions)
+        asr_options = AsrPipelineOptions(accelerator_options=accelerator_options)
+
+        spec = getattr(asr_model_specs, "WHISPER_TINY", None)
+        if spec is not None:
+            asr_options.asr_options = spec
+
+        format_options = {
+            InputFormat.AUDIO: AudioFormatOption(
+                pipeline_cls=AsrPipeline, pipeline_options=asr_options),
+        }
+        converter = DocumentConverter(format_options=format_options)
         return converter, "ASR"
 
     # Standard pipeline - apply PDF options to all supported formats

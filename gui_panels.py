@@ -4,6 +4,7 @@ This module separates the UI construction code from the main controller logic.
 """
 import tkinter as tk
 from tkinter import ttk
+
 import config
 from tooltip import create_tooltip
 
