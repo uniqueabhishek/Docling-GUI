@@ -254,7 +254,8 @@ def _create_basic_options_tab(gui):
                    "Classify images (chart, diagram, photo, etc.)")
 
     pic_desc_check = ttk.Checkbutton(right_col, text="Picture Description (VLM)",
-                                     variable=gui.do_picture_description)
+                                     variable=gui.do_picture_description,
+                                     command=gui.on_picture_description_toggle)
     pic_desc_check.pack(anchor=tk.W, pady=2)
     create_tooltip(
         pic_desc_check,
@@ -262,6 +263,12 @@ def _create_basic_options_tab(gui):
         "Downloads and runs the description model matching the\n"
         "selected VLM Model (granite or smolvlm) on first use."
     )
+    pic_desc_note = ttk.Label(
+        right_col,
+        text="Downloads a large model (~2-5 GB, free) on first use.\n"
+             "Not needed for text or tables.",
+        foreground="#b45309", font=('', 8), justify=tk.LEFT)
+    pic_desc_note.pack(anchor=tk.W, padx=(20, 0))
 
     export_pic_check = ttk.Checkbutton(right_col, text="Export Pictures",
                                        variable=gui.generate_picture_images)

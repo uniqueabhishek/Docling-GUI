@@ -6,6 +6,7 @@ Supports all Docling features including OCR, VLM, ASR pipelines
 import contextlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -302,6 +303,58 @@ class DoclingGUI:
         that honours it); disable it for RapidOCR/Auto."""
         state = tk.NORMAL if self.ocr_engine.get() == "EasyOCR" else tk.DISABLED
         self.conf_scale.config(state=state)
+
+    def on_picture_description_toggle(self):
+        """
+        Warn about the large model download when Picture Description is enabled.
+
+        Fires only on user interaction (not when settings are loaded). If the
+        user declines, the option is switched back off.
+        """
+        if not self.do_picture_description.get():
+            return  # turning the option off needs no warning
+
+        # The granite description model is ~5 GB; smolvlm is smaller.
+        required_gb = 5.0 if self.vlm_model.get() == "granite_docling" else 2.5
+        free_gb = self._free_cache_disk_gb()
+
+        msg = (
+            "Picture Description uses a vision-language model to generate AI text "
+            "descriptions of the images in your documents.\n\n"
+            f"• First use downloads a large model (about {required_gb:.0f} GB) "
+            "from Hugging Face. It is free and open-source (Apache 2.0) and runs "
+            "entirely on your computer — no API, account, or usage cost.\n"
+            f"• Needs about {required_gb:.0f} GB of free disk space and runs "
+            "slowly without a GPU.\n"
+            "• Not needed for extracting text or tables — leave it off "
+            "unless you specifically want descriptions of images."
+        )
+        if free_gb is not None and free_gb < required_gb + 1.0:
+            msg += (
+                f"\n\nWARNING: You currently have only {free_gb:.1f} GB free on "
+                "the model cache drive — the download will likely fail."
+            )
+        msg += "\n\nEnable Picture Description?"
+
+        if not messagebox.askyesno("Enable Picture Description?", msg,
+                                   icon="warning", parent=self.root):
+            self.do_picture_description.set(False)
+
+    def _free_cache_disk_gb(self):
+        """Free space (GB) on the Hugging Face model-cache drive, or None."""
+        cache = (os.environ.get("HF_HOME") or os.environ.get("HF_HUB_CACHE")
+                 or os.path.join(os.path.expanduser("~"), ".cache", "huggingface"))
+        # disk_usage needs an existing path; walk up to the nearest one.
+        path = cache
+        while path and not os.path.exists(path):
+            parent = os.path.dirname(path)
+            if parent == path:
+                break
+            path = parent
+        try:
+            return shutil.disk_usage(path).free / (1024 ** 3)
+        except OSError:
+            return None
 
     def reset_options(self):
         """Reset all options to defaults by updating existing variables"""
