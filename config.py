@@ -53,7 +53,7 @@ FEATURES:
 - Multiple input formats: PDF, DOCX, PPTX, XLSX, HTML, Images, Audio
 - Multiple output formats: Markdown, HTML, JSON, DocTags, Text
 - Pipeline types: Standard, VLM (Vision Language Model), ASR (Speech)
-- OCR engines: RapidOCR (Default/Built-in), EasyOCR, OcrMac
+- OCR engines: Auto, RapidOCR (Default/Built-in), EasyOCR (separate install)
 - Table extraction: Fast and Accurate modes
 - Formula and code enrichment
 - Picture classification and description
