@@ -197,6 +197,7 @@ def _create_basic_options_tab(gui):
         "Markdown: Easy to read, widely compatible\n"
         "HTML: For web display\n"
         "JSON: Structured data with metadata\n"
+        "DocTags: Docling's native structured markup\n"
         "Text: Plain text only"
     )
 
