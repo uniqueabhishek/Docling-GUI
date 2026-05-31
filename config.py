@@ -1,6 +1,13 @@
 """
 Configuration and constants for Docling GUI
 """
+import sys
+
+# OCR engines offered in the UI. OcrMac relies on Apple's Vision framework
+# and is only usable on macOS, so it is hidden on other platforms.
+OCR_ENGINES = ["Auto", "RapidOCR", "EasyOCR"]
+if sys.platform == "darwin":
+    OCR_ENGINES.append("OcrMac")
 
 # Supported file extensions (including audio for ASR)
 SUPPORTED_EXTENSIONS = {

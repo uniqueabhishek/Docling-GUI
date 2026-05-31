@@ -274,11 +274,10 @@ def _create_ocr_options_tab(gui):
     engine_frame.pack(fill=tk.X, pady=5)
 
     ttk.Label(engine_frame, text="OCR Engine:").pack(side=tk.LEFT)
-    engines = ["Auto", "RapidOCR", "EasyOCR"]
     engine_combo = ttk.Combobox(
         engine_frame,
         textvariable=gui.ocr_engine,
-        values=engines,
+        values=config.OCR_ENGINES,
         state="readonly",
         width=15
     )
@@ -289,7 +288,8 @@ def _create_ocr_options_tab(gui):
         "OCR Engine Selection:\n"
         "Auto: Uses RapidOCR (recommended)\n"
         "RapidOCR: Fast, built-in engine\n"
-        "EasyOCR: Deep learning-based (requires installation)"
+        "EasyOCR: Deep learning-based (requires installation)\n"
+        "OcrMac: Apple Vision OCR (macOS only)"
     )
 
     # Language
