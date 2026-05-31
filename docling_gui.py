@@ -3,6 +3,8 @@ Docling GUI - A full-featured GUI for IBM Docling document conversion
 Supports all Docling features including OCR, VLM, ASR pipelines
 """
 
+import contextlib
+import json
 import os
 import subprocess
 import threading
@@ -83,6 +85,10 @@ class DoclingGUI:
 
         # Setup drag and drop if available
         self.setup_drag_drop()
+
+        # Restore previously saved settings and persist on close
+        self.load_settings()
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
         # Check if docling is available
         if not DOCLING_AVAILABLE:
@@ -739,6 +745,47 @@ class DoclingGUI:
     def show_about(self):
         """Show about dialog"""
         messagebox.showinfo("About Docling GUI", config.ABOUT_TEXT)
+
+    # ==================== Settings Persistence ====================
+
+    def apply_settings(self, data):
+        """Apply a saved settings dict onto the option variables.
+
+        Setting names match the variable attribute names, so each key maps
+        directly to a tk.Variable on this instance.
+        """
+        for key, value in data.items():
+            var = getattr(self, key, None)
+            if isinstance(var, tk.Variable):
+                # Ignore stale/invalid values from an older settings file.
+                with contextlib.suppress(tk.TclError, ValueError):
+                    var.set(value)
+
+    def load_settings(self):
+        """Load persisted settings from disk, if present."""
+        try:
+            if config.SETTINGS_FILE.exists():
+                with open(config.SETTINGS_FILE, encoding='utf-8') as f:
+                    data = json.load(f)
+                self.apply_settings(data)
+                # Sync dependent widget states to the restored values.
+                self.on_pipeline_change()
+                self.on_ocr_engine_change()
+        except (OSError, json.JSONDecodeError) as e:
+            self.log_message(f"Could not load saved settings: {e}")
+
+    def save_settings(self):
+        """Persist the current settings to disk."""
+        try:
+            with open(config.SETTINGS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(self.get_current_settings(), f, indent=2)
+        except OSError as e:
+            self.log_message(f"Could not save settings: {e}")
+
+    def on_close(self):
+        """Save settings and close the window."""
+        self.save_settings()
+        self.root.destroy()
 
 
 def main():

@@ -2,6 +2,10 @@
 Configuration and constants for Docling GUI
 """
 import sys
+from pathlib import Path
+
+# Location of the persisted user settings (saved on close, loaded on launch).
+SETTINGS_FILE = Path.home() / ".docling_gui_settings.json"
 
 # OCR engines offered in the UI. OcrMac relies on Apple's Vision framework
 # and is only usable on macOS, so it is hidden on other platforms.
