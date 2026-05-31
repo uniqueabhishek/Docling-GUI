@@ -182,8 +182,8 @@ def build_pipeline_options(settings):
     if OCR_OPTIONS_AVAILABLE and settings.get('enable_ocr', False):
         ocr_engine = settings.get('ocr_engine', 'RapidOCR')
         lang = settings.get('ocr_language', 'en')
-        force_full_page = settings.get('force_full_page_ocr', True)
-        confidence = settings.get('ocr_confidence', 0.8)
+        force_full_page = settings.get('force_full_page_ocr', False)
+        confidence = settings.get('ocr_confidence', 0.5)
 
         if ocr_engine == "EasyOCR":
             pipeline_options.ocr_options = EasyOcrOptions(
@@ -204,7 +204,7 @@ def build_pipeline_options(settings):
 
     # Accelerator options
     pipeline_options.accelerator_options = AcceleratorOptions(
-        device=settings.get('device', 'cpu'),
+        device=settings.get('device', 'auto'),
         num_threads=settings.get('num_threads', 4)
     )
     if hasattr(pipeline_options.accelerator_options, 'cuda_use_flash_attention2'):
