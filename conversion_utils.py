@@ -12,12 +12,17 @@ try:
         PdfPipelineOptions,
         TableFormerMode,
     )
-    from docling.document_converter import DocumentConverter, PdfFormatOption
+    from docling.document_converter import (
+        DocumentConverter,
+        ImageFormatOption,
+        PdfFormatOption,
+    )
     DOCLING_AVAILABLE = True
 except ImportError:
     DOCLING_AVAILABLE = False
     DocumentConverter = None
     PdfFormatOption = None
+    ImageFormatOption = None
     InputFormat = None
     PdfPipelineOptions = None
     TableFormerMode = None
@@ -27,7 +32,6 @@ except ImportError:
 try:
     from docling.datamodel import vlm_model_specs
     from docling.datamodel.pipeline_options import VlmPipelineOptions
-    from docling.document_converter import ImageFormatOption
     from docling.pipeline.vlm_pipeline import VlmPipeline
     VLM_AVAILABLE = True
 except ImportError:
@@ -35,7 +39,6 @@ except ImportError:
     VlmPipelineOptions = None
     VlmPipeline = None
     vlm_model_specs = None
-    ImageFormatOption = None
 
 # Try to import ASR pipeline
 try:
@@ -275,11 +278,14 @@ def build_converter(settings):
         converter = DocumentConverter(format_options=format_options)
         return converter, "ASR"
 
-    # Standard pipeline - apply PDF options to all supported formats
+    # Standard pipeline - apply the same options to PDF and image inputs,
+    # both of which run through the StandardPdfPipeline (OCR, tables, etc.).
     pipeline_options = build_pipeline_options(settings)
     if pipeline_options:
         format_options = {
             InputFormat.PDF: PdfFormatOption(
+                pipeline_options=pipeline_options),
+            InputFormat.IMAGE: ImageFormatOption(
                 pipeline_options=pipeline_options),
         }
         converter = DocumentConverter(format_options=format_options)

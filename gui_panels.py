@@ -279,6 +279,7 @@ def _create_ocr_options_tab(gui):
         width=15
     )
     engine_combo.pack(side=tk.LEFT, padx=(10, 0))
+    engine_combo.bind('<<ComboboxSelected>>', gui.on_ocr_engine_change)
     create_tooltip(
         engine_combo,
         "OCR Engine Selection:\n"
@@ -323,7 +324,7 @@ def _create_ocr_options_tab(gui):
     conf_frame.pack(fill=tk.X, pady=5)
 
     ttk.Label(conf_frame, text="Confidence Threshold:").pack(side=tk.LEFT)
-    conf_scale = ttk.Scale(
+    gui.conf_scale = ttk.Scale(
         conf_frame,
         from_=0.1,
         to=1.0,
@@ -331,20 +332,29 @@ def _create_ocr_options_tab(gui):
         orient=tk.HORIZONTAL,
         length=150
     )
-    conf_scale.pack(side=tk.LEFT, padx=(10, 5))
+    gui.conf_scale.pack(side=tk.LEFT, padx=(10, 5))
     gui.conf_label = ttk.Label(conf_frame, text="0.5")
     gui.conf_label.pack(side=tk.LEFT)
-    conf_scale.configure(
+    gui.conf_scale.configure(
         command=lambda v: gui.conf_label.config(text=f"{float(v):.2f}"))
+    create_tooltip(
+        gui.conf_scale,
+        "Minimum confidence for recognised text.\n"
+        "Only applies to the EasyOCR engine."
+    )
 
     # Note about OCR
     note_frame = ttk.Frame(tab)
     note_frame.pack(fill=tk.X, pady=(20, 0))
     ttk.Label(
         note_frame,
-        text="Note: RapidOCR is built-in. EasyOCR requires separate installation.",
-        foreground="gray", font=('', 8)
+        text="Note: RapidOCR is built-in. EasyOCR requires separate installation.\n"
+             "Confidence Threshold applies to EasyOCR only.",
+        foreground="gray", font=('', 8), justify=tk.LEFT
     ).pack(anchor=tk.W)
+
+    # Set the initial enabled/disabled state of the confidence slider.
+    gui.on_ocr_engine_change()
 
 
 def _create_advanced_options_tab(gui):
@@ -397,16 +407,31 @@ def _create_advanced_options_tab(gui):
     limits_frame2 = ttk.Frame(tab)
     limits_frame2.pack(fill=tk.X, pady=5)
 
-    # Timeout
-    ttk.Label(limits_frame2, text="Timeout (sec):").pack(side=tk.LEFT)
+    # Max File Size
+    ttk.Label(limits_frame2, text="Max File Size (MB):").pack(side=tk.LEFT)
     ttk.Spinbox(
         limits_frame2,
+        from_=0,
+        to=10000,
+        textvariable=gui.max_file_size_mb,
+        width=8
+    ).pack(side=tk.LEFT, padx=(5, 15))
+    ttk.Label(limits_frame2, text="(0 = unlimited)",
+              foreground="gray").pack(side=tk.LEFT)
+
+    limits_frame3 = ttk.Frame(tab)
+    limits_frame3.pack(fill=tk.X, pady=5)
+
+    # Timeout
+    ttk.Label(limits_frame3, text="Timeout (sec):").pack(side=tk.LEFT)
+    ttk.Spinbox(
+        limits_frame3,
         from_=0,
         to=3600,
         textvariable=gui.document_timeout,
         width=8
     ).pack(side=tk.LEFT, padx=(5, 15))
-    ttk.Label(limits_frame2, text="(0 = no limit)",
+    ttk.Label(limits_frame3, text="(0 = no limit)",
               foreground="gray").pack(side=tk.LEFT)
 
     # Separator

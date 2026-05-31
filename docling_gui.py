@@ -62,6 +62,7 @@ class DoclingGUI:
         self.options_notebook: ttk.Notebook
         self.vlm_frame: ttk.Frame
         self.conf_label: ttk.Label
+        self.conf_scale: ttk.Scale
         self.preview_notebook: ttk.Notebook
         self.preview_text: tk.Text
         self.log_text: tk.Text
@@ -258,6 +259,12 @@ class DoclingGUI:
         else:
             self.vlm_frame.pack_forget()
 
+    def on_ocr_engine_change(self, _=None):
+        """Enable the confidence slider only for EasyOCR (the only engine
+        that honours it); disable it for RapidOCR/Auto."""
+        state = tk.NORMAL if self.ocr_engine.get() == "EasyOCR" else tk.DISABLED
+        self.conf_scale.config(state=state)
+
     def reset_options(self):
         """Reset all options to defaults by updating existing variables"""
         self.pipeline_type.set("Standard")
@@ -297,6 +304,9 @@ class DoclingGUI:
 
         # Hide VLM frame if shown
         self.vlm_frame.pack_forget()
+
+        # Refresh dependent widget states (e.g. confidence slider)
+        self.on_ocr_engine_change()
 
         messagebox.showinfo(
             "Reset", "All options have been reset to defaults.")
@@ -607,6 +617,11 @@ class DoclingGUI:
                     max_pages = settings.get('max_pages', 0)
                     if max_pages and max_pages > 0:
                         convert_kwargs['page_range'] = (1, max_pages)
+
+                    # Apply max file size limit (MB -> bytes); 0 = unlimited
+                    max_file_size_mb = settings.get('max_file_size_mb', 0)
+                    if max_file_size_mb and max_file_size_mb > 0:
+                        convert_kwargs['max_file_size'] = max_file_size_mb * 1024 * 1024
 
                     # Convert the document
                     result = self.converter.convert(filepath, **convert_kwargs)
