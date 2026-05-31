@@ -13,7 +13,7 @@ A full-featured graphical interface for [IBM Docling](https://github.com/docling
 
 ## Requirements
 
-*   Python 3.10+
+*   Python 3.10+ (developed and tested on 3.13)
 
 ## Installation
 
