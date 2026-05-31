@@ -34,11 +34,102 @@ except ImportError:
     DND_FILES = None
 
 
+# Single source of truth for every option variable: name -> default value.
+# The tk variable type is inferred from the default (bool -> BooleanVar,
+# int -> IntVar, float -> DoubleVar, str -> StringVar). A callable default is
+# evaluated at init/reset time (used for the home-relative output directory).
+OPTION_DEFAULTS: dict[str, Any] = {
+    # Basic
+    "pipeline_type": "Standard",
+    "vlm_model": "granite_docling",
+    "output_format": "Markdown",
+    # Feature toggles
+    "enable_ocr": True,
+    "do_table_structure": True,
+    "generate_picture_images": False,
+    "do_formula_enrichment": True,
+    "do_code_enrichment": True,
+    "do_picture_classification": True,
+    "do_picture_description": False,
+    # OCR
+    "ocr_engine": "RapidOCR",
+    "ocr_language": "en",
+    "force_full_page_ocr": False,
+    "ocr_confidence": 0.5,
+    # Table
+    "table_mode": "Accurate",
+    "do_cell_matching": True,
+    # Advanced
+    "max_pages": 0,
+    "max_file_size_mb": 0,
+    "document_timeout": 0,
+    "generate_page_images": False,
+    "generate_table_images": False,
+    "images_scale": 1.0,
+    # Accelerator
+    "device": "auto",
+    "num_threads": 4,
+    "use_flash_attention": False,
+    # Output
+    "output_directory": lambda: str(Path.home() / "Documents"),
+    "create_subfolder": False,
+    "overwrite_files": False,
+}
+
+
+def _resolve_default(default):
+    """Evaluate a callable default, otherwise return it unchanged."""
+    return default() if callable(default) else default
+
+
+def _make_var(default):
+    """Create the appropriate tk variable for a resolved default value."""
+    # bool must be checked before int, since bool is a subclass of int.
+    if isinstance(default, bool):
+        return tk.BooleanVar(value=default)
+    if isinstance(default, int):
+        return tk.IntVar(value=default)
+    if isinstance(default, float):
+        return tk.DoubleVar(value=default)
+    return tk.StringVar(value=str(default))
+
+
 class DoclingGUI:
     """
     Main GUI class for Docling Document Converter.
     Handles UI creation, option management, and conversion process.
     """
+
+    # Option variables are created dynamically in init_variables from
+    # OPTION_DEFAULTS; declared here so static type checkers know they exist.
+    pipeline_type: tk.StringVar
+    vlm_model: tk.StringVar
+    output_format: tk.StringVar
+    enable_ocr: tk.BooleanVar
+    do_table_structure: tk.BooleanVar
+    generate_picture_images: tk.BooleanVar
+    do_formula_enrichment: tk.BooleanVar
+    do_code_enrichment: tk.BooleanVar
+    do_picture_classification: tk.BooleanVar
+    do_picture_description: tk.BooleanVar
+    ocr_engine: tk.StringVar
+    ocr_language: tk.StringVar
+    force_full_page_ocr: tk.BooleanVar
+    ocr_confidence: tk.DoubleVar
+    table_mode: tk.StringVar
+    do_cell_matching: tk.BooleanVar
+    max_pages: tk.IntVar
+    max_file_size_mb: tk.IntVar
+    document_timeout: tk.IntVar
+    generate_page_images: tk.BooleanVar
+    generate_table_images: tk.BooleanVar
+    images_scale: tk.DoubleVar
+    device: tk.StringVar
+    num_threads: tk.IntVar
+    use_flash_attention: tk.BooleanVar
+    output_directory: tk.StringVar
+    create_subfolder: tk.BooleanVar
+    overwrite_files: tk.BooleanVar
 
     def __init__(self, root):
         self.root = root
@@ -143,88 +234,13 @@ class DoclingGUI:
         )
 
     def init_variables(self):
-        """Initialize all option variables"""
-        # Basic Options
-        self.pipeline_type = tk.StringVar(value="Standard")
-        self.vlm_model = tk.StringVar(value="granite_docling")
-        self.output_format = tk.StringVar(value="Markdown")
-
-        # Feature toggles
-        self.enable_ocr = tk.BooleanVar(value=True)
-        self.do_table_structure = tk.BooleanVar(value=True)
-        self.generate_picture_images = tk.BooleanVar(value=False)
-        self.do_formula_enrichment = tk.BooleanVar(value=True)
-        self.do_code_enrichment = tk.BooleanVar(value=True)
-        self.do_picture_classification = tk.BooleanVar(value=True)
-        self.do_picture_description = tk.BooleanVar(value=False)
-
-        # OCR Options
-        self.ocr_engine = tk.StringVar(value="RapidOCR")
-        self.ocr_language = tk.StringVar(value="en")
-        self.force_full_page_ocr = tk.BooleanVar(value=False)
-        self.ocr_confidence = tk.DoubleVar(value=0.5)
-
-        # Table Options
-        self.table_mode = tk.StringVar(value="Accurate")
-        self.do_cell_matching = tk.BooleanVar(value=True)
-
-        # Advanced Options
-        self.max_pages = tk.IntVar(value=0)
-        self.max_file_size_mb = tk.IntVar(value=0)
-        self.document_timeout = tk.IntVar(value=0)
-        self.generate_page_images = tk.BooleanVar(value=False)
-        self.generate_table_images = tk.BooleanVar(value=False)
-        self.images_scale = tk.DoubleVar(value=1.0)
-
-        # Accelerator Options
-        self.device = tk.StringVar(value="auto")
-        self.num_threads = tk.IntVar(value=4)
-        self.use_flash_attention = tk.BooleanVar(value=False)
-
-        # Output Options
-        self.output_directory = tk.StringVar(
-            value=str(Path.home() / "Documents"))
-        self.create_subfolder = tk.BooleanVar(value=False)
-        self.overwrite_files = tk.BooleanVar(value=False)
+        """Create every option variable from OPTION_DEFAULTS."""
+        for name, default in OPTION_DEFAULTS.items():
+            setattr(self, name, _make_var(_resolve_default(default)))
 
     def get_current_settings(self):
         """Collect current settings into a dictionary"""
-        return {
-            'pipeline_type': self.pipeline_type.get(),
-            'vlm_model': self.vlm_model.get(),
-            'output_format': self.output_format.get(),
-
-            'enable_ocr': self.enable_ocr.get(),
-            'do_table_structure': self.do_table_structure.get(),
-            'generate_picture_images': self.generate_picture_images.get(),
-            'do_formula_enrichment': self.do_formula_enrichment.get(),
-            'do_code_enrichment': self.do_code_enrichment.get(),
-            'do_picture_classification': self.do_picture_classification.get(),
-            'do_picture_description': self.do_picture_description.get(),
-
-            'ocr_engine': self.ocr_engine.get(),
-            'ocr_language': self.ocr_language.get(),
-            'force_full_page_ocr': self.force_full_page_ocr.get(),
-            'ocr_confidence': self.ocr_confidence.get(),
-
-            'table_mode': self.table_mode.get(),
-            'do_cell_matching': self.do_cell_matching.get(),
-
-            'max_pages': self.max_pages.get(),
-            'max_file_size_mb': self.max_file_size_mb.get(),
-            'document_timeout': self.document_timeout.get(),
-            'generate_page_images': self.generate_page_images.get(),
-            'generate_table_images': self.generate_table_images.get(),
-            'images_scale': self.images_scale.get(),
-
-            'device': self.device.get(),
-            'num_threads': self.num_threads.get(),
-            'use_flash_attention': self.use_flash_attention.get(),
-
-            'output_directory': self.output_directory.get(),
-            'create_subfolder': self.create_subfolder.get(),
-            'overwrite_files': self.overwrite_files.get(),
-        }
+        return {name: getattr(self, name).get() for name in OPTION_DEFAULTS}
 
     def create_main_layout(self):
         """Create the main window layout"""
@@ -273,40 +289,8 @@ class DoclingGUI:
 
     def reset_options(self):
         """Reset all options to defaults by updating existing variables"""
-        self.pipeline_type.set("Standard")
-        self.vlm_model.set("granite_docling")
-        self.output_format.set("Markdown")
-
-        self.enable_ocr.set(True)
-        self.do_table_structure.set(True)
-        self.generate_picture_images.set(False)
-        self.do_formula_enrichment.set(True)
-        self.do_code_enrichment.set(True)
-        self.do_picture_classification.set(True)
-        self.do_picture_description.set(False)
-
-        self.ocr_engine.set("RapidOCR")
-        self.ocr_language.set("en")
-        self.force_full_page_ocr.set(False)
-        self.ocr_confidence.set(0.5)
-
-        self.table_mode.set("Accurate")
-        self.do_cell_matching.set(True)
-
-        self.max_pages.set(0)
-        self.max_file_size_mb.set(0)
-        self.document_timeout.set(0)
-        self.generate_page_images.set(False)
-        self.generate_table_images.set(False)
-        self.images_scale.set(1.0)
-
-        self.device.set("auto")
-        self.num_threads.set(4)
-        self.use_flash_attention.set(False)
-
-        self.output_directory.set(str(Path.home() / "Documents"))
-        self.create_subfolder.set(False)
-        self.overwrite_files.set(False)
+        for name, default in OPTION_DEFAULTS.items():
+            getattr(self, name).set(_resolve_default(default))
 
         # Hide VLM frame if shown
         self.vlm_frame.pack_forget()
