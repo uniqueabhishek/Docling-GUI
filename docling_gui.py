@@ -3,28 +3,29 @@ Docling GUI - A full-featured GUI for IBM Docling document conversion
 Supports all Docling features including OCR, VLM, ASR pipelines
 """
 
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import threading
-import subprocess
 import os
+import subprocess
+import threading
+import tkinter as tk
 import webbrowser
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+from typing import Any
 
 # Import refactored modules
 import config
 import gui_panels
 from conversion_utils import (
     DOCLING_AVAILABLE,
-    get_output_extension,
-    export_content,
     build_converter,
+    export_content,
+    get_output_extension,
 )
 
 # Try to import drag-drop support
 try:
-    from tkinterdnd2 import TkinterDnD, DND_FILES
+    from tkinterdnd2 import DND_FILES, TkinterDnD
     DND_AVAILABLE = True
 except ImportError:
     DND_AVAILABLE = False
@@ -52,25 +53,25 @@ class DoclingGUI:
         # Conversion state
         self.is_converting = False
         self.cancel_requested = False
-        self.converter = None
+        self.converter: Any = None
 
-        # UI Components initialized to None
-        self.file_listbox = None
-        self.context_menu = None
-        self.file_count_label = None
-        self.options_notebook = None
-        self.vlm_frame = None
-        self.conf_label = None
-        self.preview_notebook = None
-        self.preview_text = None
-        self.log_text = None
-        self.progress_var = None
-        self.progress_bar = None
-        self.progress_label = None
-        self.status_label = None
-        self.convert_selected_btn = None
-        self.convert_all_btn = None
-        self.cancel_btn = None
+        # UI Components (created by gui_panels during layout construction)
+        self.file_listbox: tk.Listbox
+        self.context_menu: tk.Menu
+        self.file_count_label: ttk.Label
+        self.options_notebook: ttk.Notebook
+        self.vlm_frame: ttk.Frame
+        self.conf_label: ttk.Label
+        self.preview_notebook: ttk.Notebook
+        self.preview_text: tk.Text
+        self.log_text: tk.Text
+        self.progress_var: tk.DoubleVar
+        self.progress_bar: ttk.Progressbar
+        self.progress_label: ttk.Label
+        self.status_label: ttk.Label
+        self.convert_selected_btn: tk.Button
+        self.convert_all_btn: tk.Button
+        self.cancel_btn: tk.Button
 
         # Initialize all option variables
         self.init_variables()
@@ -464,13 +465,17 @@ class DoclingGUI:
             return
 
         try:
+            # tkinterdnd2 adds these methods at runtime via a mixin; the base
+            # Listbox stub doesn't know about them, so access through Any.
+            listbox: Any = self.file_listbox
+
             # Register the listbox as a drop target
-            self.file_listbox.drop_target_register(DND_FILES)
-            self.file_listbox.dnd_bind('<<Drop>>', self.on_drop)
+            listbox.drop_target_register(DND_FILES)
+            listbox.dnd_bind('<<Drop>>', self.on_drop)
 
             # Add visual feedback on drag over
-            self.file_listbox.dnd_bind('<<DragEnter>>', self.on_drag_enter)
-            self.file_listbox.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+            listbox.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+            listbox.dnd_bind('<<DragLeave>>', self.on_drag_leave)
 
             self.log_message(
                 "Drag & Drop enabled - Drop files or folders here!")
@@ -724,10 +729,7 @@ class DoclingGUI:
 def main():
     """Main entry point"""
     # Use TkinterDnD if available for drag-drop support
-    if DND_AVAILABLE:
-        root = TkinterDnD.Tk()
-    else:
-        root = tk.Tk()
+    root = TkinterDnD.Tk() if DND_AVAILABLE else tk.Tk()
 
     DoclingGUI(root)
     root.mainloop()
